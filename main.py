@@ -17,7 +17,6 @@ from simulator import (
     parse_matches,
     summary_table,
     DEFAULT_JOBS,
-    DEFAULT_TIE_PERCENT,
     DEFAULT_HOME_FIELD_ADVANTAGE,
 )
 from calibration import estimate_parameters
@@ -52,12 +51,6 @@ def main() -> None:
         help="number of parallel workers",
     )
     parser.add_argument(
-        "--tie-percent",
-        type=float,
-        default=DEFAULT_TIE_PERCENT,
-        help="percent chance of a match ending in a draw",
-    )
-    parser.add_argument(
         "--home-advantage",
         type=float,
         default=DEFAULT_HOME_FIELD_ADVANTAGE,
@@ -66,14 +59,14 @@ def main() -> None:
     parser.add_argument(
         "--home-goals-mean",
         type=float,
-        default=None,
-        help="expected goals for the home side when using Poisson scoring",
+        default=1.0,
+        help="expected goals for the home side (Poisson scoring)",
     )
     parser.add_argument(
         "--away-goals-mean",
         type=float,
-        default=None,
-        help="expected goals for the away side when using Poisson scoring",
+        default=1.0,
+        help="expected goals for the away side (Poisson scoring)",
     )
     parser.add_argument(
         "--auto-calibrate",
@@ -99,14 +92,13 @@ def main() -> None:
         season_files = [
             f for f in season_files if os.path.abspath(f) != os.path.abspath(args.file)
         ]
-        args.tie_percent, args.home_advantage = estimate_parameters(season_files)
+        _, args.home_advantage = estimate_parameters(season_files)
 
     matches = parse_matches(args.file)
     if args.from_date:
         from_date = pd.to_datetime(args.from_date)
         matches.loc[matches["date"] >= from_date, ["home_score", "away_score"]] = np.nan
     rng = np.random.default_rng(args.seed) if args.seed is not None else None
-    tie_prob = args.tie_percent / 100.0
     home_adv = args.home_advantage
 
     summary = summary_table(
@@ -114,7 +106,6 @@ def main() -> None:
         iterations=args.simulations,
         rng=rng,
         progress=args.progress,
-        tie_prob=tie_prob,
         home_advantage=home_adv,
         home_goals_mean=args.home_goals_mean,
         away_goals_mean=args.away_goals_mean,

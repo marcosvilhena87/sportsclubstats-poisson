@@ -119,27 +119,6 @@ def test_league_table_tiebreakers():
     assert list(table.team[:2]) == ["B", "A"]
 
 
-def test_simulate_table_no_draws_when_zero_tie():
-    played = pd.DataFrame(
-        [],
-        columns=["date", "home_team", "away_team", "home_score", "away_score"],
-    )
-    remaining = pd.DataFrame(
-        [
-            {"date": "2025-01-01", "home_team": "A", "away_team": "B"},
-            {"date": "2025-01-02", "home_team": "B", "away_team": "A"},
-        ]
-    )
-    rng = np.random.default_rng(4)
-    table = simulator._simulate_table(
-        played,
-        remaining,
-        rng,
-        tie_prob=0.0,
-    )
-    assert table["draws"].sum() == 0
-
-
 def _minimal_matches():
     played = pd.DataFrame(
         [],
@@ -151,13 +130,15 @@ def _minimal_matches():
     return played, remaining
 
 
-def test_simulate_table_invalid_tie_prob():
+def test_simulate_table_poisson_defaults():
     played, remaining = _minimal_matches()
-    rng = np.random.default_rng(1)
-    with pytest.raises(ValueError):
-        simulator._simulate_table(played, remaining, rng, tie_prob=-0.1)
-    with pytest.raises(ValueError):
-        simulator._simulate_table(played, remaining, rng, tie_prob=1.1)
+    rng = np.random.default_rng(4)
+    table = simulator._simulate_table(played, remaining, rng)
+    a = table[table.team == "A"].iloc[0]
+    b = table[table.team == "B"].iloc[0]
+    assert a["points"] == 3 and b["points"] == 0
+    assert a["gf"] == 3 and a["ga"] == 1
+    assert b["gf"] == 1 and b["ga"] == 3
 
 
 def test_simulate_table_invalid_home_advantage():
@@ -172,9 +153,9 @@ def test_simulate_table_invalid_home_advantage():
 def test_simulate_chances_invalid_params():
     df = parse_matches("data/Brasileirao2024A.txt")
     with pytest.raises(ValueError):
-        simulator.simulate_chances(df, iterations=1, tie_prob=2.0, progress=False)
-    with pytest.raises(ValueError):
         simulator.simulate_chances(df, iterations=1, home_advantage=0, progress=False)
+    with pytest.raises(ValueError):
+        simulator.simulate_chances(df, iterations=1, home_goals_mean=0, progress=False)
 
 
 def test_simulate_final_table_custom_params_deterministic():
@@ -184,8 +165,9 @@ def test_simulate_final_table_custom_params_deterministic():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.2,
         home_advantage=1.3,
+        home_goals_mean=1.2,
+        away_goals_mean=0.8,
         n_jobs=2,
     )
     rng = np.random.default_rng(9)
@@ -193,8 +175,9 @@ def test_simulate_final_table_custom_params_deterministic():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.2,
         home_advantage=1.3,
+        home_goals_mean=1.2,
+        away_goals_mean=0.8,
         n_jobs=2,
     )
     pd.testing.assert_frame_equal(t1, t2)
@@ -207,8 +190,9 @@ def test_custom_params_repeatable():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.25,
         home_advantage=1.4,
+        home_goals_mean=1.1,
+        away_goals_mean=0.9,
         progress=False,
         n_jobs=2,
     )
@@ -217,8 +201,9 @@ def test_custom_params_repeatable():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.25,
         home_advantage=1.4,
+        home_goals_mean=1.1,
+        away_goals_mean=0.9,
         progress=False,
         n_jobs=2,
     )
@@ -292,8 +277,9 @@ def test_summary_table_after_reset_deterministic():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.22,
         home_advantage=1.2,
+        home_goals_mean=1.05,
+        away_goals_mean=0.95,
         progress=False,
         n_jobs=2,
     )
@@ -302,8 +288,9 @@ def test_summary_table_after_reset_deterministic():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.22,
         home_advantage=1.2,
+        home_goals_mean=1.05,
+        away_goals_mean=0.95,
         progress=False,
         n_jobs=2,
     )
@@ -318,8 +305,9 @@ def test_summary_table_after_reset_other_params_deterministic():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.3,
         home_advantage=1.5,
+        home_goals_mean=1.2,
+        away_goals_mean=0.9,
         progress=False,
         n_jobs=2,
     )
@@ -328,8 +316,9 @@ def test_summary_table_after_reset_other_params_deterministic():
         df,
         iterations=5,
         rng=rng,
-        tie_prob=0.3,
         home_advantage=1.5,
+        home_goals_mean=1.2,
+        away_goals_mean=0.9,
         progress=False,
         n_jobs=2,
     )

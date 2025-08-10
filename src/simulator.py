@@ -27,10 +27,6 @@ import pandas as pd
 # Default simulation parameters
 # ---------------------------------------------------------------------------
 
-# Percent chance of a match ending in a tie when teams are of equal strength
-# Fixed at one third of matches ending level.
-DEFAULT_TIE_PERCENT = 33.3
-
 # Relative advantage multiplier for the home team
 # No built-in home advantage is used by default.
 DEFAULT_HOME_FIELD_ADVANTAGE = 1.0
@@ -217,34 +213,24 @@ def _simulate_table(
     remaining: pd.DataFrame,
     rng: np.random.Generator,
     *,
-    tie_prob: float = DEFAULT_TIE_PERCENT / 100.0,
     home_advantage: float = DEFAULT_HOME_FIELD_ADVANTAGE,
     team_params: Dict[str, tuple[float, float]] | None = None,
-    home_goals_mean: float | None = None,
-    away_goals_mean: float | None = None,
-) -> pd.DataFrame:
-    """Simulate remaining fixtures.
+    home_goals_mean: float = 1.0,
+    away_goals_mean: float = 1.0,
+ ) -> pd.DataFrame:
+    """Simulate remaining fixtures using Poisson goal generation."""
 
-    When ``home_goals_mean`` or ``away_goals_mean`` is provided the match
-    scores are sampled from Poisson distributions with the given means scaled by
-    ``home_advantage`` and any ``team_params``. Otherwise the classic
-    win/draw/loss model based on ``tie_prob`` is used.
-    """
-
-    if not 0.0 <= tie_prob <= 1.0:
-        raise ValueError("tie_prob must be between 0 and 1")
     if home_advantage <= 0:
         raise ValueError("home_advantage must be greater than zero")
 
-    if home_goals_mean is not None and home_goals_mean <= 0:
+    if home_goals_mean <= 0:
         raise ValueError("home_goals_mean must be greater than zero")
-    if away_goals_mean is not None and away_goals_mean <= 0:
+    if away_goals_mean <= 0:
         raise ValueError("away_goals_mean must be greater than zero")
 
     sims: list[dict] = []
 
     for _, row in remaining.iterrows():
-        tp = tie_prob
         ha = home_advantage
         if team_params is not None:
             ha *= team_params.get(row["home_team"], (1.0, 1.0))[0] / team_params.get(row["away_team"], (1.0, 1.0))[1]
@@ -252,25 +238,10 @@ def _simulate_table(
         else:
             away_factor = 1.0
 
-        if home_goals_mean is not None or away_goals_mean is not None:
-            hm = home_goals_mean if home_goals_mean is not None else 1.0
-            am = away_goals_mean if away_goals_mean is not None else 1.0
-            hm *= ha
-            am *= away_factor
-            hs = int(rng.poisson(hm))
-            as_ = int(rng.poisson(am))
-        else:
-            rest = 1.0 - tp
-            strength_sum = ha + away_factor
-            home_prob = rest * ha / strength_sum
-            draw_prob = tp
-            r = rng.random()
-            if r < home_prob:
-                hs, as_ = 1, 0
-            elif r < home_prob + draw_prob:
-                hs, as_ = 0, 0
-            else:
-                hs, as_ = 0, 1
+        hm = home_goals_mean * ha
+        am = away_goals_mean * away_factor
+        hs = int(rng.poisson(hm))
+        as_ = int(rng.poisson(am))
 
         sims.append(
             {
@@ -293,11 +264,10 @@ def _iterate_tables(
     *,
     desc: str,
     progress: bool,
-    tie_prob: float,
     home_advantage: float,
     team_params: Dict[str, tuple[float, float]] | None,
-    home_goals_mean: float | None,
-    away_goals_mean: float | None,
+    home_goals_mean: float,
+    away_goals_mean: float,
     n_jobs: int,
 ):
     """Yield successive simulated tables.
@@ -317,7 +287,6 @@ def _iterate_tables(
                 played_df,
                 remaining,
                 np.random.default_rng(seed),
-                tie_prob=tie_prob,
                 home_advantage=home_advantage,
                 team_params=team_params,
                 home_goals_mean=home_goals_mean,
@@ -342,7 +311,6 @@ def _iterate_tables(
                 played_df,
                 remaining,
                 rng,
-                tie_prob=tie_prob,
                 home_advantage=home_advantage,
                 team_params=team_params,
                 home_goals_mean=home_goals_mean,
@@ -361,11 +329,10 @@ def simulate_chances(
     *,
     rng: np.random.Generator | None = None,
     progress: bool = True,
-    tie_prob: float = DEFAULT_TIE_PERCENT / 100.0,
     home_advantage: float = DEFAULT_HOME_FIELD_ADVANTAGE,
     team_params: Dict[str, tuple[float, float]] | None = None,
-    home_goals_mean: float | None = None,
-    away_goals_mean: float | None = None,
+    home_goals_mean: float = 1.0,
+    away_goals_mean: float = 1.0,
     n_jobs: int = DEFAULT_JOBS,
 ) -> Dict[str, float]:
     """Return title probabilities.
@@ -391,7 +358,6 @@ def simulate_chances(
         iterations,
         desc="Chances",
         progress=progress,
-        tie_prob=tie_prob,
         home_advantage=home_advantage,
         team_params=team_params,
         home_goals_mean=home_goals_mean,
@@ -411,11 +377,10 @@ def simulate_relegation_chances(
     *,
     rng: np.random.Generator | None = None,
     progress: bool = True,
-    tie_prob: float = DEFAULT_TIE_PERCENT / 100.0,
     home_advantage: float = DEFAULT_HOME_FIELD_ADVANTAGE,
     team_params: Dict[str, tuple[float, float]] | None = None,
-    home_goals_mean: float | None = None,
-    away_goals_mean: float | None = None,
+    home_goals_mean: float = 1.0,
+    away_goals_mean: float = 1.0,
     n_jobs: int = DEFAULT_JOBS,
 ) -> Dict[str, float]:
     """Return probabilities of finishing in the bottom four."""
@@ -438,7 +403,6 @@ def simulate_relegation_chances(
         iterations,
         desc="Relegation",
         progress=progress,
-        tie_prob=tie_prob,
         home_advantage=home_advantage,
         team_params=team_params,
         home_goals_mean=home_goals_mean,
@@ -459,11 +423,10 @@ def simulate_final_table(
     *,
     rng: np.random.Generator | None = None,
     progress: bool = True,
-    tie_prob: float = DEFAULT_TIE_PERCENT / 100.0,
     home_advantage: float = DEFAULT_HOME_FIELD_ADVANTAGE,
     team_params: Dict[str, tuple[float, float]] | None = None,
-    home_goals_mean: float | None = None,
-    away_goals_mean: float | None = None,
+    home_goals_mean: float = 1.0,
+    away_goals_mean: float = 1.0,
     n_jobs: int = DEFAULT_JOBS,
 ) -> pd.DataFrame:
     """Project average finishing position and points."""
@@ -488,7 +451,6 @@ def simulate_final_table(
         iterations,
         desc="Final table",
         progress=progress,
-        tie_prob=tie_prob,
         home_advantage=home_advantage,
         team_params=team_params,
         home_goals_mean=home_goals_mean,
@@ -520,11 +482,10 @@ def summary_table(
     *,
     rng: np.random.Generator | None = None,
     progress: bool = True,
-    tie_prob: float = DEFAULT_TIE_PERCENT / 100.0,
     home_advantage: float = DEFAULT_HOME_FIELD_ADVANTAGE,
     team_params: Dict[str, tuple[float, float]] | None = None,
-    home_goals_mean: float | None = None,
-    away_goals_mean: float | None = None,
+    home_goals_mean: float = 1.0,
+    away_goals_mean: float = 1.0,
     n_jobs: int = DEFAULT_JOBS,
 ) -> pd.DataFrame:
     """Return a combined projection table ranked by expected points.
@@ -556,7 +517,6 @@ def summary_table(
         iterations,
         desc="Summary",
         progress=progress,
-        tie_prob=tie_prob,
         home_advantage=home_advantage,
         team_params=team_params,
         home_goals_mean=home_goals_mean,
