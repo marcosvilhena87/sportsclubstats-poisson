@@ -58,6 +58,12 @@ def test_simulate_relegation_chances_sum_to_four():
     assert abs(sum(probs.values()) - 4.0) < 1e-6
 
 
+def test_summary_table_top4_sum_to_four():
+    df = parse_matches('data/Brasileirao2024A.txt')
+    table = simulator.summary_table(df, iterations=10, progress=False)
+    assert abs(table['top4'].sum() - 4.0) < 1e-6
+
+
 def test_simulate_relegation_chances_seed_repeatability():
     df = parse_matches('data/Brasileirao2024A.txt')
     rng = np.random.default_rng(123)
@@ -103,6 +109,7 @@ def test_summary_table_deterministic():
         "wins",
         "gd",
         "title",
+        "top4",
         "relegation",
     }.issubset(table1.columns)
 
