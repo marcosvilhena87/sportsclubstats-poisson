@@ -114,21 +114,25 @@ def main() -> None:
     if args.html_output:
         summary.to_html(args.html_output, index=False)
 
-    TITLE_W = 7
-    TOP4_W = len("Top4")
-    REL_W = 10
-    POINTS_W = len("xPts")
-    WINS_W = len("xWins")
-    GD_W = len("xGD")
+    POINTS_W = max(len("xPts"), len(str(summary["points"].max())))
+    WINS_W = max(len("xWins"), len(str(summary["wins"].max())))
+    GD_W = max(len("xGD"), len(str(summary["gd"].max())))
+    TITLE_W = max(len("Title"), max(len(f"{p:.2%}") for p in summary["title"]))
+    TOP4_W = max(len("Top4"), max(len(f"{p:.2%}") for p in summary["top4"]))
+    REL_W = max(len("Relegation"), max(len(f"{p:.2%}") for p in summary["relegation"]))
     print(
-        f"{'Pos':>3}  {'Team':15s} {'xPts':^{POINTS_W}} {'xWins':^{WINS_W}} {'xGD':^{GD_W}} {'Title':^{TITLE_W}} {'Top4':^{TOP4_W}} {'Relegation':^{REL_W}}"
+        f"{'Pos':>3}  {'Team':15s} "
+        f"{'xPts':^{POINTS_W}} {'xWins':^{WINS_W}} {'xGD':^{GD_W}} "
+        f"{'Title':^{TITLE_W}} {'Top4':^{TOP4_W}} {'Relegation':^{REL_W}}"
     )
     for _, row in summary.iterrows():
         title = f"{row['title']:.2%}"
         top4 = f"{row['top4']:.2%}"
         releg = f"{row['relegation']:.2%}"
         print(
-            f"{row['position']:>2d}   {row['team']:15s} {row['points']:^{POINTS_W}d} {row['wins']:^{WINS_W}d} {row['gd']:^{GD_W}d} {title:^{TITLE_W}} {top4:^{TOP4_W}} {releg:^{REL_W}}"
+            f"{row['position']:>2d}   {row['team']:15s} "
+            f"{row['points']:^{POINTS_W}d} {row['wins']:^{WINS_W}d} {row['gd']:^{GD_W}d} "
+            f"{title:^{TITLE_W}} {top4:^{TOP4_W}} {releg:^{REL_W}}"
         )
 
 if __name__ == "__main__":
