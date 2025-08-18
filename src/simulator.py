@@ -487,11 +487,15 @@ def summary_table(
     home_goals_mean: float = 1.0,
     away_goals_mean: float = 1.0,
     n_jobs: int = DEFAULT_JOBS,
+    top_n: int = 4,
+    bottom_n: int = 4,
 ) -> pd.DataFrame:
     """Return a combined projection table ranked by expected points.
 
     The ``position`` column corresponds to the rank after sorting by the
-    expected point totals.
+    expected point totals. The returned table also includes probabilities of
+    finishing in the top ``top_n`` places and in the bottom ``bottom_n`` spots
+    (labelled ``relegation``).
     """
 
     if rng is None:
@@ -501,10 +505,11 @@ def summary_table(
     teams = pd.unique(matches[["home_team", "away_team"]].values.ravel())
     title_counts = {t: 0 for t in teams}
     relegated = {t: 0 for t in teams}
-    top4_counts = {t: 0 for t in teams}
+    top_counts = {t: 0 for t in teams}
     points_totals = {t: 0.0 for t in teams}
     wins_totals = {t: 0.0 for t in teams}
     gd_totals = {t: 0.0 for t in teams}
+    top_col = f"top{top_n}"
 
     played_df = matches.dropna(subset=["home_score", "away_score"])
     remaining = matches[
@@ -525,9 +530,9 @@ def summary_table(
         n_jobs=n_jobs,
     ):
         title_counts[table.iloc[0]["team"]] += 1
-        for team in table.head(4)["team"]:
-            top4_counts[team] += 1
-        for team in table.tail(4)["team"]:
+        for team in table.head(top_n)["team"]:
+            top_counts[team] += 1
+        for team in table.tail(bottom_n)["team"]:
             relegated[team] += 1
         for _, row in table.iterrows():
             points_totals[row["team"]] += row["points"]
@@ -543,7 +548,7 @@ def summary_table(
                 "wins": wins_totals[team] / iterations,
                 "gd": gd_totals[team] / iterations,
                 "title": title_counts[team] / iterations,
-                "top4": top4_counts[team] / iterations,
+                top_col: top_counts[team] / iterations,
                 "relegation": relegated[team] / iterations,
             }
         )
@@ -554,4 +559,4 @@ def summary_table(
     df["points"] = df["points"].round().astype(int)
     df["wins"] = df["wins"].round().astype(int)
     df["gd"] = df["gd"].round().astype(int)
-    return df[["position", "team", "points", "wins", "gd", "title", "top4", "relegation"]]
+    return df[["position", "team", "points", "wins", "gd", "title", top_col, "relegation"]]
