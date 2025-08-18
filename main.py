@@ -69,6 +69,12 @@ def main() -> None:
         help="expected goals for the away side (Poisson scoring)",
     )
     parser.add_argument(
+        "--top-n",
+        type=int,
+        default=4,
+        help="number of top spots to report",
+    )
+    parser.add_argument(
         "--auto-calibrate",
         action="store_true",
         help="estimate parameters from past seasons",
@@ -110,6 +116,7 @@ def main() -> None:
         home_goals_mean=args.home_goals_mean,
         away_goals_mean=args.away_goals_mean,
         n_jobs=args.jobs,
+        top_n=args.top_n,
     )
     if args.html_output:
         summary.to_html(args.html_output, index=False)
@@ -118,21 +125,22 @@ def main() -> None:
     WINS_W = max(len("xWins"), len(str(summary["wins"].max())))
     GD_W = max(len("xGD"), len(str(summary["gd"].max())))
     TITLE_W = max(len("Title"), max(len(f"{p:.2%}") for p in summary["title"]))
-    TOP4_W = max(len("Top4"), max(len(f"{p:.2%}") for p in summary["top4"]))
+    top_col = f"top{args.top_n}"
+    TOP_W = max(len(f"Top{args.top_n}"), max(len(f"{p:.2%}") for p in summary[top_col]))
     REL_W = max(len("Relegation"), max(len(f"{p:.2%}") for p in summary["relegation"]))
     print(
         f"{'Pos':>3}  {'Team':15s} "
         f"{'xPts':^{POINTS_W}} {'xWins':^{WINS_W}} {'xGD':^{GD_W}} "
-        f"{'Title':^{TITLE_W}} {'Top4':^{TOP4_W}} {'Relegation':^{REL_W}}"
+        f"{'Title':^{TITLE_W}} {f'Top{args.top_n}':^{TOP_W}} {'Relegation':^{REL_W}}"
     )
     for _, row in summary.iterrows():
         title = f"{row['title']:.2%}"
-        top4 = f"{row['top4']:.2%}"
+        top_val = f"{row[top_col]:.2%}"
         releg = f"{row['relegation']:.2%}"
         print(
             f"{row['position']:>2d}   {row['team']:15s} "
             f"{row['points']:^{POINTS_W}d} {row['wins']:^{WINS_W}d} {row['gd']:^{GD_W}d} "
-            f"{title:^{TITLE_W}} {top4:^{TOP4_W}} {releg:^{REL_W}}"
+            f"{title:^{TITLE_W}} {top_val:^{TOP_W}} {releg:^{REL_W}}"
         )
 
 if __name__ == "__main__":

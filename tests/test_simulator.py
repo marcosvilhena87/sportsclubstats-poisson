@@ -58,10 +58,13 @@ def test_simulate_relegation_chances_sum_to_four():
     assert abs(sum(probs.values()) - 4.0) < 1e-6
 
 
-def test_summary_table_top4_sum_to_four():
+def test_summary_table_custom_cutoffs():
     df = parse_matches('data/Brasileirao2024A.txt')
-    table = simulator.summary_table(df, iterations=10, progress=False)
-    assert abs(table['top4'].sum() - 4.0) < 1e-6
+    table = simulator.summary_table(
+        df, iterations=10, progress=False, top_n=3, bottom_n=5
+    )
+    assert abs(table['top3'].sum() - 3.0) < 1e-6
+    assert abs(table['relegation'].sum() - 5.0) < 1e-6
 
 
 def test_simulate_relegation_chances_seed_repeatability():
@@ -102,6 +105,7 @@ def test_summary_table_deterministic():
         df, iterations=5, rng=rng, progress=False, n_jobs=2
     )
     pd.testing.assert_frame_equal(table1, table2)
+    top_col = "top4"
     assert {
         "position",
         "team",
@@ -109,7 +113,7 @@ def test_summary_table_deterministic():
         "wins",
         "gd",
         "title",
-        "top4",
+        top_col,
         "relegation",
     }.issubset(table1.columns)
 
